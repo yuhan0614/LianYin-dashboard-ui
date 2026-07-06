@@ -178,8 +178,8 @@ const META_ACCOUNT_ID = '500489921658676';
 const GADS_ACCOUNTS = [
   {
     name: 'Allez',
-    pubBase: '', // 例："https://docs.google.com/spreadsheets/d/e/xxx/pub"
-    gids: { daily: '', campaign: '', age: '', gender: '', location: '', adgroup: '', keyword: '' },
+    pubBase: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRa9Q-1QYbyZcr5x6GVhkZ_6OzGq_ZBfil1QjhQJZjJPgJEzqJsPVavNI-7U5RwJadLG7GINDp9kBfE/pub',
+    gids: { daily: '', campaign: '897890015', age: '', gender: '', location: '', adgroup: '', keyword: '' },
   },
   // 第二個帳戶設定好之後，比照上面格式加進來即可
 ];
@@ -301,10 +301,12 @@ async function fetchData(forceRefresh = false) {
     allAdData       = adJson.data || [];
     adUrlMap        = (await urlRes.json()).data || {};
 
-    const [gDaily, gCamp, gAge, gGender, gAg, gKw] = await Promise.all([
+    const [gDailyRaw, gCamp, gAge, gGender, gAg, gKw] = await Promise.all([
       fetchGadsSheet('daily'), fetchGadsSheet('campaign'), fetchGadsSheet('age'),
       fetchGadsSheet('gender'), fetchGadsSheet('adgroup'), fetchGadsSheet('keyword'),
     ]);
+    // 「每日資料」分頁沒設定時，從「廣告活動」分頁依日期加總回推每日資料
+    const gDaily = gDailyRaw.length ? gDailyRaw : deriveDailyFromCampaign(gCamp);
 
     renderOverall(trendData, gDaily, since, until, ageJson.data||[], genderJson.data||[], gAge, gGender);
     renderPerf(campData, trendData, since, until);
@@ -591,6 +593,25 @@ function filterByDate(rows, since, until) {
     const d = r['日期'] || '';
     return d >= since && d <= until;
   });
+}
+
+function deriveDailyFromCampaign(rows) {
+  const map = {};
+  (rows || []).forEach(r => {
+    const d = r['日期'];
+    if (!d) return;
+    if (!map[d]) map[d] = { spend:0, imp:0, clk:0, purchase:0, revenue:0 };
+    const m = map[d];
+    m.spend    += parseFloat(r['花費(TWD)'])||0;
+    m.imp      += parseInt(r['曝光'])||0;
+    m.clk      += parseInt(r['點擊'])||0;
+    m.purchase += parseFloat(r['購買'])||0;
+    m.revenue  += parseFloat(r['營收(TWD)'])||0;
+  });
+  return Object.entries(map).map(([d, m]) => ({
+    '日期': d, '花費(TWD)': String(m.spend), '曝光': String(m.imp), '點擊': String(m.clk),
+    '購買': String(m.purchase), '營收(TWD)': String(m.revenue),
+  }));
 }
 
 function aggRows(rows, dimKeys) {
