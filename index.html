@@ -96,6 +96,14 @@
   tr:hover td:first-child { background: #f6ffed; }
 
   .placeholder { text-align:center; padding:60px; color:#aaa; }
+
+  .camp-card-grid-wrap { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; margin-bottom:20px; }
+  .camp-card { background:white; border-radius:12px; padding:14px 16px; box-shadow:0 1px 4px rgba(0,0,0,0.07); }
+  .camp-card-title { font-weight:700; font-size:13px; margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .camp-card-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
+  .camp-card-grid > div { display:flex; flex-direction:column; }
+  .cc-lbl { font-size:10px; color:#999; text-transform:uppercase; letter-spacing:.3px; }
+  .cc-val { font-size:14px; font-weight:700; }
 </style>
 </head>
 <body>
@@ -176,6 +184,8 @@ const GADS_ACCOUNTS = [
   // 第二個帳戶設定好之後，比照上面格式加進來即可
 ];
 
+let allezCampRaw = [];
+let allezGranularity = 'day';
 let trendChart, pieChart;
 let overallSpendChart = null, overallPieChart = null;
 let allAdData = [];
@@ -745,11 +755,140 @@ function renderGoogleAds(data, since, until) {
   renderGadsSection('tab-gads', 'gads', data, since, until);
 }
 
+function aggCampaignTotals(rows) {
+  const map = {};
+  rows.forEach(r => {
+    const key = r['廣告活動'] || '—';
+    if (!map[key]) map[key] = { name:key, spend:0, clk:0, addCart:0, purchase:0, revenue:0 };
+    const m = map[key];
+    m.spend    += parseFloat(r['花費(TWD)'])||0;
+    m.clk      += parseInt(r['點擊'])||0;
+    m.addCart  += parseFloat(r['加入購物車'])||0;
+    m.purchase += parseFloat(r['購買'])||0;
+    m.revenue  += parseFloat(r['營收(TWD)'])||0;
+  });
+  return Object.values(map).map(m => ({
+    ...m,
+    cpc:         m.clk > 0 ? m.spend/m.clk : 0,
+    cpaAddCart:  m.addCart > 0 ? m.spend/m.addCart : 0,
+    cpaPurchase: m.purchase > 0 ? m.spend/m.purchase : 0,
+    roas:        m.spend > 0 ? m.revenue/m.spend : 0,
+  }));
+}
+
+function periodKey(dateStr, g) {
+  if (g === 'day' || !dateStr) return dateStr;
+  if (g === 'month') return dateStr.slice(0,7);
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1) - day;
+  const monday = new Date(d); monday.setDate(d.getDate() + diff);
+  return toYMD(monday);
+}
+function periodLabel(key, g) {
+  if (g !== 'week') return key;
+  const monday = new Date(key + 'T00:00:00');
+  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+  return `${key} ~ ${toYMD(sunday)}`;
+}
+
+function setAllezGranularity(g, btn) {
+  allezGranularity = g;
+  btn.parentElement.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAllezTable();
+}
+
+function renderAllezTable() {
+  const campFilter = document.getElementById('allezCampFilter')?.value || '';
+  const filtered = campFilter ? allezCampRaw.filter(r => r['廣告活動'] === campFilter) : allezCampRaw;
+  const map = {};
+  filtered.forEach(r => {
+    const period = periodKey(r['日期'], allezGranularity);
+    const camp = r['廣告活動'] || '—';
+    const key = camp + '||' + period;
+    if (!map[key]) map[key] = { camp, period, spend:0, clk:0, addCart:0, purchase:0, revenue:0 };
+    const m = map[key];
+    m.spend    += parseFloat(r['花費(TWD)'])||0;
+    m.clk      += parseInt(r['點擊'])||0;
+    m.addCart  += parseFloat(r['加入購物車'])||0;
+    m.purchase += parseFloat(r['購買'])||0;
+    m.revenue  += parseFloat(r['營收(TWD)'])||0;
+  });
+  const rows = Object.values(map).map(m => ({
+    ...m,
+    cpc:         m.clk > 0 ? m.spend/m.clk : 0,
+    cpaPurchase: m.purchase > 0 ? m.spend/m.purchase : 0,
+    roas:        m.spend > 0 ? m.revenue/m.spend : 0,
+  })).sort((a,b) => a.camp === b.camp ? a.period.localeCompare(b.period) : a.camp.localeCompare(b.camp));
+
+  document.getElementById('allezTableWrap').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>廣告活動</th><th>期間</th><th>花費</th><th>點擊</th><th>CPC</th>
+        <th>加入購物車</th><th>購買</th><th>CPA（購買）</th><th>營收</th><th>ROAS</th>
+      </tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td><span class="cell-name" title="${r.camp}">${r.camp}</span></td>
+        <td>${periodLabel(r.period, allezGranularity)}</td>
+        <td>${fmtM(r.spend)}</td><td>${fmtN(r.clk)}</td><td>${fmtM(r.cpc)}</td>
+        <td>${fmtN(r.addCart)}</td>
+        <td>${fmtN(r.purchase)}</td><td>${r.cpaPurchase?fmtM(r.cpaPurchase):'<span class="na">—</span>'}</td>
+        <td>${fmtM(r.revenue)}</td>
+        <td class="${rc(r.roas)}">${r.roas?r.roas.toFixed(2)+'x':'<span class="na">—</span>'}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+}
+
 function renderAllez(allData, since, until) {
-  const filterAccount = name => key => (allData[key] || []).filter(r => r._account === name);
-  const pick = filterAccount('Allez');
-  const data = { daily: pick('daily'), campaign: pick('campaign'), age: pick('age'), gender: pick('gender') };
-  renderGadsSection('tab-allez', 'allez', data, since, until, 'Allez 帳戶尚未設定資料來源，請先完成 Google Ads Script + Sheet 發布設定。');
+  const el = document.getElementById('tab-allez');
+  const rows = filterByDate((allData.campaign || []).filter(r => r._account === 'Allez'), since, until);
+  if (!rows.length) {
+    el.innerHTML = `<div class="table-card"><div class="placeholder">Allez 帳戶尚未設定資料來源，請先完成 Google Ads Script + Sheet 發布設定。</div></div>`;
+    return;
+  }
+  allezCampRaw = rows;
+  allezGranularity = 'day';
+
+  const campTotals = aggCampaignTotals(rows).sort((a,b) => b.spend - a.spend);
+
+  const cardsHTML = campTotals.map(r => `
+    <div class="camp-card">
+      <div class="camp-card-title" title="${r.name}">${r.name}</div>
+      <div class="camp-card-grid">
+        <div><span class="cc-lbl">花費</span><span class="cc-val">${fmtM(r.spend)}</span></div>
+        <div><span class="cc-lbl">點擊</span><span class="cc-val">${fmtN(r.clk)}</span></div>
+        <div><span class="cc-lbl">CPC</span><span class="cc-val">${fmtM(r.cpc)}</span></div>
+        <div><span class="cc-lbl">加車</span><span class="cc-val">${fmtN(r.addCart)}</span></div>
+        <div><span class="cc-lbl">購買</span><span class="cc-val">${fmtN(r.purchase)}</span></div>
+        <div><span class="cc-lbl">CPA（購買）</span><span class="cc-val">${r.cpaPurchase?fmtM(r.cpaPurchase):'—'}</span></div>
+        <div><span class="cc-lbl">營收</span><span class="cc-val">${fmtM(r.revenue)}</span></div>
+        <div><span class="cc-lbl">ROAS</span><span class="cc-val ${rc(r.roas)}">${r.roas?r.roas.toFixed(2)+'x':'—'}</span></div>
+      </div>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <div class="camp-card-grid-wrap">${cardsHTML}</div>
+    <div class="table-card">
+      <div class="table-header">
+        <h3>📋 廣告活動明細</h3>
+        <div class="table-header-right">
+          <div class="filter-row">
+            <select class="filter-select" id="allezCampFilter" onchange="renderAllezTable()">
+              <option value="">所有廣告活動</option>
+              ${campTotals.map(r => `<option value="${r.name}">${r.name}</option>`).join('')}
+            </select>
+            <div class="preset-btns">
+              <button class="preset-btn active" onclick="setAllezGranularity('day',this)">日</button>
+              <button class="preset-btn" onclick="setAllezGranularity('week',this)">週</button>
+              <button class="preset-btn" onclick="setAllezGranularity('month',this)">月</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="table-wrap" id="allezTableWrap"></div>
+    </div>`;
+  renderAllezTable();
 }
 
 function renderGadsSection(elId, chartPrefix, data, since, until, emptyMsg) {
