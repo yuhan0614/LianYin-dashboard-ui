@@ -141,6 +141,7 @@
   <button class="tab-btn" onclick="switchTab('perf')">📊 Meta 成效</button>
   <button class="tab-btn" onclick="switchTab('creative')">🎨 Meta 素材</button>
   <button class="tab-btn" onclick="switchTab('gads')">🔍 Google Ads</button>
+  <button class="tab-btn" onclick="switchTab('allez')">Allez</button>
   <button class="tab-btn" onclick="switchTab('gkw')">🔑 Google 關鍵字</button>
 </div>
 </div>
@@ -155,6 +156,7 @@
   <div class="tab-panel" id="tab-perf"><div class="placeholder">點擊「更新資料」開始載入</div></div>
   <div class="tab-panel" id="tab-creative"><div class="placeholder">點擊「更新資料」開始載入</div></div>
   <div class="tab-panel" id="tab-gads"><div class="placeholder">點擊「更新資料」開始載入</div></div>
+  <div class="tab-panel" id="tab-allez"><div class="placeholder">點擊「更新資料」開始載入</div></div>
   <div class="tab-panel" id="tab-gkw"><div class="placeholder">點擊「更新資料」開始載入</div></div>
 </div>
 
@@ -167,7 +169,7 @@ const META_ACCOUNT_ID = '500489921658676';
 // pubBase 留空代表這個帳戶還沒設定好，會自動跳過不 fetch。
 const GADS_ACCOUNTS = [
   {
-    name: 'Google 帳戶一',
+    name: 'Allez',
     pubBase: '', // 例："https://docs.google.com/spreadsheets/d/e/xxx/pub"
     gids: { daily: '', campaign: '', age: '', gender: '', location: '', adgroup: '', keyword: '' },
   },
@@ -250,7 +252,9 @@ async function fetchGadsSheet(kind) {
     try {
       const url = `${a.pubBase}?gid=${a.gids[kind]}&single=true&output=csv`;
       const res = await fetch(url);
-      return parseCSV(await res.text());
+      const rows = parseCSV(await res.text());
+      rows.forEach(r => { r._account = a.name; });
+      return rows;
     } catch(e) { return []; }
   }));
   return results.flat();
@@ -296,7 +300,9 @@ async function fetchData(forceRefresh = false) {
     renderPerf(campData, trendData, since, until);
     renderCreative();
     renderDemographic(ageJson.data || [], genderJson.data || []);
-    renderGoogleAds({ daily: gDaily, campaign: gCamp, age: gAge, gender: gGender, adgroup: gAg, keyword: gKw }, since, until);
+    const gAll = { daily: gDaily, campaign: gCamp, age: gAge, gender: gGender, adgroup: gAg, keyword: gKw };
+    renderGoogleAds(gAll, since, until);
+    renderAllez(gAll, since, until);
     const kwRows = aggRows(filterByDate(gKw, since, until), ['關鍵字']).map(r => {
       const ctr  = r.imp > 0 ? r.clk/r.imp*100 : 0;
       const cpa  = r.purchase > 0 ? r.spend/r.purchase : 0;
@@ -736,10 +742,21 @@ function renderOverall(trendData, gDaily, since, until, metaAgeData, metaGenderD
 
 // ── Google Ads Tab ────────────────────────────────────────
 function renderGoogleAds(data, since, until) {
-  const el = document.getElementById('tab-gads');
-  const gadsConfigured = GADS_ACCOUNTS.some(a => a.pubBase);
-  if (!gadsConfigured) {
-    el.innerHTML = `<div class="table-card"><div class="placeholder">Google Ads 尚未設定資料來源。<br>把 Google Ads Script 匯出的 Sheet 發布連結填進 <code>GADS_ACCOUNTS</code> 之後就會顯示資料。</div></div>`;
+  renderGadsSection('tab-gads', 'gads', data, since, until);
+}
+
+function renderAllez(allData, since, until) {
+  const filterAccount = name => key => (allData[key] || []).filter(r => r._account === name);
+  const pick = filterAccount('Allez');
+  const data = { daily: pick('daily'), campaign: pick('campaign'), age: pick('age'), gender: pick('gender') };
+  renderGadsSection('tab-allez', 'allez', data, since, until, 'Allez 帳戶尚未設定資料來源，請先完成 Google Ads Script + Sheet 發布設定。');
+}
+
+function renderGadsSection(elId, chartPrefix, data, since, until, emptyMsg) {
+  const el = document.getElementById(elId);
+  const hasData = (data.daily && data.daily.length) || (data.campaign && data.campaign.length);
+  if (!hasData) {
+    el.innerHTML = `<div class="table-card"><div class="placeholder">${emptyMsg || 'Google Ads 尚未設定資料來源。<br>把 Google Ads Script 匯出的 Sheet 發布連結填進 <code>GADS_ACCOUNTS</code> 之後就會顯示資料。'}</div></div>`;
     return;
   }
 
@@ -820,11 +837,11 @@ function renderGoogleAds(data, since, until) {
     <div class="charts-row">
       <div class="chart-card">
         <h3>📅 每日趨勢</h3>
-        <div class="chart-wrap"><canvas id="gadsTrendChart"></canvas></div>
+        <div class="chart-wrap"><canvas id="${chartPrefix}TrendChart"></canvas></div>
       </div>
       <div class="chart-card">
         <h3>📊 廣告活動花費佔比</h3>
-        <div class="chart-wrap"><canvas id="gadsPieChart"></canvas></div>
+        <div class="chart-wrap"><canvas id="${chartPrefix}PieChart"></canvas></div>
       </div>
     </div>
     <div class="table-card">
@@ -852,7 +869,7 @@ function renderGoogleAds(data, since, until) {
     <div class="table-card" style="margin-top:20px"><div class="table-header"><h3>⚧ 性別分析</h3></div>${gadsTable(genderRows, [{label:'性別',key:'性別'},...metricCols])}</div>
     `;
 
-  let gadsTrendChart = new Chart(document.getElementById('gadsTrendChart'), {
+  new Chart(document.getElementById(chartPrefix + 'TrendChart'), {
     data: { labels: dailyRows.map(r=>r.date), datasets: [
       { type:'bar',  label:'花費',  data: dailyRows.map(r=>r.spend),    backgroundColor:'rgba(66,133,244,0.3)', borderColor:'#4285f4', borderWidth:1, yAxisID:'y', borderRadius:3 },
       { type:'line', label:'ROAS',  data: dailyRows.map(r=>r.roas),     borderColor:'#e8833a', borderWidth:2, pointRadius:2, tension:0.3, yAxisID:'y2' },
@@ -867,7 +884,7 @@ function renderGoogleAds(data, since, until) {
       }
     }
   });
-  new Chart(document.getElementById('gadsPieChart'), {
+  new Chart(document.getElementById(chartPrefix + 'PieChart'), {
     type:'doughnut',
     data: { labels: campSorted.map(r=>r.name), datasets:[{ data:campSorted.map(r=>r.spend), backgroundColor:gadsColors, borderWidth:2, borderColor:'white' }] },
     options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{ font:{size:10}, boxWidth:10, padding:6 } } } }
