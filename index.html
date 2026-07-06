@@ -97,12 +97,15 @@
 
   .placeholder { text-align:center; padding:60px; color:#aaa; }
 
-  .camp-card-grid-wrap { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; margin-bottom:20px; }
-  .camp-card { background:white; border-radius:12px; padding:14px 16px; box-shadow:0 1px 4px rgba(0,0,0,0.07); }
-  .camp-card-title { font-weight:700; font-size:13px; margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .camp-card-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
-  .camp-card-grid > div { display:flex; flex-direction:column; }
+  .camp-card-list-wrap { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
+  .camp-card { background:white; border-radius:12px; padding:16px 20px; box-shadow:0 1px 4px rgba(0,0,0,0.07); display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+  .camp-card-title { flex:0 0 200px; font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .camp-card-metrics { display:flex; flex:1; gap:22px; flex-wrap:wrap; }
+  .cc-item { display:flex; flex-direction:column; min-width:68px; }
   .cc-lbl { font-size:10px; color:#999; text-transform:uppercase; letter-spacing:.3px; }
+  .cc-delta { font-size:11px; font-weight:600; margin-top:1px; }
+  .cc-delta-up { color:#52c41a; }
+  .cc-delta-down { color:#f5222d; }
   .cc-val { font-size:14px; font-weight:700; }
 </style>
 </head>
@@ -151,6 +154,11 @@
   <button class="tab-btn" style="display:none" onclick="switchTab('gads')">🔍 Google Ads</button>
   <button class="tab-btn active" onclick="switchTab('allez')">Allez</button>
   <button class="tab-btn" style="display:none" onclick="switchTab('gkw')">🔑 Google 關鍵字</button>
+  <button class="tab-btn" onclick="switchTab('svc-repair')">維修</button>
+  <button class="tab-btn" onclick="switchTab('svc-rental')">租賃</button>
+  <button class="tab-btn" onclick="switchTab('svc-purchase')">購買</button>
+  <button class="tab-btn" onclick="switchTab('svc-visit')">親臨門市</button>
+  <button class="tab-btn" onclick="switchTab('svc-engagement')">互動</button>
 </div>
 </div>
 
@@ -166,11 +174,16 @@
   <div class="tab-panel" id="tab-gads"><div class="placeholder">點擊「更新資料」開始載入</div></div>
   <div class="tab-panel active" id="tab-allez"><div class="placeholder">點擊「更新資料」開始載入</div></div>
   <div class="tab-panel" id="tab-gkw"><div class="placeholder">點擊「更新資料」開始載入</div></div>
+  <div class="tab-panel" id="tab-svc-repair"><div class="placeholder">點擊「更新資料」開始載入</div></div>
+  <div class="tab-panel" id="tab-svc-rental"><div class="placeholder">點擊「更新資料」開始載入</div></div>
+  <div class="tab-panel" id="tab-svc-purchase"><div class="placeholder">點擊「更新資料」開始載入</div></div>
+  <div class="tab-panel" id="tab-svc-visit"><div class="placeholder">點擊「更新資料」開始載入</div></div>
+  <div class="tab-panel" id="tab-svc-engagement"><div class="placeholder">點擊「更新資料」開始載入</div></div>
 </div>
 
 <script>
 // ── 帳戶設定 ──────────────────────────────────────────────
-const API_BASE = 'https://verve-dashboard.onrender.com';
+const API_BASE = 'https://lianyin-dashboard.onrender.com';
 const META_ACCOUNT_ID = '500489921658676';
 
 // Google Ads 帳戶：每個帳戶對應一份「發布到網路」的 Google Sheet。
@@ -179,9 +192,15 @@ const GADS_ACCOUNTS = [
   {
     name: 'Allez',
     pubBase: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRa9Q-1QYbyZcr5x6GVhkZ_6OzGq_ZBfil1QjhQJZjJPgJEzqJsPVavNI-7U5RwJadLG7GINDp9kBfE/pub',
-    gids: { daily: '', campaign: '897890015', age: '', gender: '', location: '', adgroup: '', keyword: '' },
+    gids: { daily: '', campaign: '897890015', age: '', gender: '', location: '', adgroup: '', keyword: '', service: '' },
+    spendAdjust: 1,
   },
-  // 第二個帳戶設定好之後，比照上面格式加進來即可
+  {
+    name: '聯瑩國際',
+    pubBase: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vToDZOsLD9c8F0BopLl-zDqCr5cdiagCRTuT9zxmDtZuaIYEc5ZmTR7hRbvkCycORtzmBIVZY_cDVT9/pub',
+    gids: { daily: '', campaign: '', age: '', gender: '', location: '', adgroup: '', keyword: '', service: '1783129967' },
+    spendAdjust: 0.64, // 花費要先 /0.64 才是計算用的數字
+  },
 ];
 
 let allezCampRaw = [];
@@ -263,7 +282,13 @@ async function fetchGadsSheet(kind) {
       const url = `${a.pubBase}?gid=${a.gids[kind]}&single=true&output=csv`;
       const res = await fetch(url);
       const rows = parseCSV(await res.text());
-      rows.forEach(r => { r._account = a.name; });
+      const adj = a.spendAdjust || 1;
+      rows.forEach(r => {
+        r._account = a.name;
+        if (adj !== 1 && r['花費(TWD)'] !== undefined) {
+          r['花費(TWD)'] = String((parseFloat(r['花費(TWD)']) || 0) / adj);
+        }
+      });
       return rows;
     } catch(e) { return []; }
   }));
@@ -282,28 +307,34 @@ async function fetchData(forceRefresh = false) {
 
   const force = forceRefresh;
 
+  const svcPrev = prevRange(since, until);
+
   try {
-    const [campRes, trendRes, adRes, urlRes, ageRes, genderRes] = await Promise.all([
+    const [campRes, trendRes, adRes, urlRes, ageRes, genderRes, campTrendRes] = await Promise.all([
       fetch(`${API_BASE}/api/insights?accounts=${META_ACCOUNT_ID}&since=${since}&until=${until}&level=campaign${force?'&force=true':''}`),
       fetch(`${API_BASE}/api/insights?accounts=${META_ACCOUNT_ID}&since=${since}&until=${until}&level=account&time_increment=1${force?'&force=true':''}`),
       fetch(`${API_BASE}/api/insights?accounts=${META_ACCOUNT_ID}&since=${since}&until=${until}&level=ad${force?'&force=true':''}`),
       fetch(`${API_BASE}/api/ad_urls?account=${META_ACCOUNT_ID}`),
       fetch(`${API_BASE}/api/insights?accounts=${META_ACCOUNT_ID}&since=${since}&until=${until}&level=account&breakdowns=age`),
       fetch(`${API_BASE}/api/insights?accounts=${META_ACCOUNT_ID}&since=${since}&until=${until}&level=account&breakdowns=gender`),
+      fetch(`${API_BASE}/api/insights?accounts=${META_ACCOUNT_ID}&since=${svcPrev.since}&until=${until}&level=campaign&time_increment=1`),
     ]);
     const campJson  = await campRes.json();
     const trendJson = await trendRes.json();
     const adJson    = await adRes.json();
     const ageJson   = await ageRes.json();
     const genderJson= await genderRes.json();
+    const campTrendJson = await campTrendRes.json();
     const campData  = campJson.data || [];
     const trendData = trendJson.data || [];
     allAdData       = adJson.data || [];
     adUrlMap        = (await urlRes.json()).data || {};
+    const metaCampTrend = campTrendJson.data || [];
 
-    const [gDailyRaw, gCamp, gAge, gGender, gAg, gKw] = await Promise.all([
+    const [gDailyRaw, gCamp, gAge, gGender, gAg, gKw, gService] = await Promise.all([
       fetchGadsSheet('daily'), fetchGadsSheet('campaign'), fetchGadsSheet('age'),
       fetchGadsSheet('gender'), fetchGadsSheet('adgroup'), fetchGadsSheet('keyword'),
+      fetchGadsSheet('service'),
     ]);
     // 「每日資料」分頁沒設定時，從「廣告活動」分頁依日期加總回推每日資料
     const gDaily = gDailyRaw.length ? gDailyRaw : deriveDailyFromCampaign(gCamp);
@@ -315,6 +346,7 @@ async function fetchData(forceRefresh = false) {
     const gAll = { daily: gDaily, campaign: gCamp, age: gAge, gender: gGender, adgroup: gAg, keyword: gKw };
     renderGoogleAds(gAll, since, until);
     renderAllez(gAll, since, until);
+    renderServiceTabs(metaCampTrend, gService, since, until);
     const kwRows = aggRows(filterByDate(gKw, since, until), ['關鍵字']).map(r => {
       const ctr  = r.imp > 0 ? r.clk/r.imp*100 : 0;
       const cpa  = r.purchase > 0 ? r.spend/r.purchase : 0;
@@ -861,9 +893,28 @@ function renderAllezTable() {
     </table>`;
 }
 
+function prevRange(since, until) {
+  const s = new Date(since + 'T00:00:00'), u = new Date(until + 'T00:00:00');
+  const days = Math.round((u - s) / 86400000) + 1;
+  const prevUntil = new Date(s); prevUntil.setDate(s.getDate() - 1);
+  const prevSince = new Date(prevUntil); prevSince.setDate(prevUntil.getDate() - days + 1);
+  return { since: toYMD(prevSince), until: toYMD(prevUntil) };
+}
+
+function deltaHTML(cur, prev) {
+  cur = cur || 0; prev = prev || 0;
+  if (!prev) return cur ? `<span class="cc-delta cc-delta-up">新增</span>` : '';
+  const pct = (cur - prev) / prev * 100;
+  if (Math.abs(pct) < 0.05) return `<span class="cc-delta">持平</span>`;
+  const cls = pct > 0 ? 'cc-delta-up' : 'cc-delta-down';
+  const sign = pct > 0 ? '+' : '';
+  return `<span class="cc-delta ${cls}">${sign}${pct.toFixed(0)}%</span>`;
+}
+
 function renderAllez(allData, since, until) {
   const el = document.getElementById('tab-allez');
-  const rows = filterByDate((allData.campaign || []).filter(r => r._account === 'Allez'), since, until);
+  const allRows = (allData.campaign || []).filter(r => r._account === 'Allez');
+  const rows = filterByDate(allRows, since, until);
   if (!rows.length) {
     el.innerHTML = `<div class="table-card"><div class="placeholder">Allez 帳戶尚未設定資料來源，請先完成 Google Ads Script + Sheet 發布設定。</div></div>`;
     return;
@@ -871,25 +922,33 @@ function renderAllez(allData, since, until) {
   allezCampRaw = rows;
   allezGranularity = 'day';
 
+  const prev = prevRange(since, until);
+  const prevRows = filterByDate(allRows, prev.since, prev.until);
+  const prevMap = {};
+  aggCampaignTotals(prevRows).forEach(r => { prevMap[r.name] = r; });
+
   const campTotals = aggCampaignTotals(rows).sort((a,b) => b.spend - a.spend);
 
-  const cardsHTML = campTotals.map(r => `
+  const cardsHTML = campTotals.map(r => {
+    const p = prevMap[r.name] || {};
+    return `
     <div class="camp-card">
       <div class="camp-card-title" title="${r.name}">${r.name}</div>
-      <div class="camp-card-grid">
-        <div><span class="cc-lbl">花費</span><span class="cc-val">${fmtM(r.spend)}</span></div>
-        <div><span class="cc-lbl">點擊</span><span class="cc-val">${fmtN(r.clk)}</span></div>
-        <div><span class="cc-lbl">CPC</span><span class="cc-val">${fmtM(r.cpc)}</span></div>
-        <div><span class="cc-lbl">加車</span><span class="cc-val">${fmtN(r.addCart)}</span></div>
-        <div><span class="cc-lbl">購買</span><span class="cc-val">${fmtN(r.purchase)}</span></div>
-        <div><span class="cc-lbl">CPA（購買）</span><span class="cc-val">${r.cpaPurchase?fmtM(r.cpaPurchase):'—'}</span></div>
-        <div><span class="cc-lbl">營收</span><span class="cc-val">${fmtM(r.revenue)}</span></div>
-        <div><span class="cc-lbl">ROAS</span><span class="cc-val ${rc(r.roas)}">${r.roas?r.roas.toFixed(2)+'x':'—'}</span></div>
+      <div class="camp-card-metrics">
+        <div class="cc-item"><span class="cc-lbl">花費</span><span class="cc-val">${fmtM(r.spend)}</span>${deltaHTML(r.spend, p.spend)}</div>
+        <div class="cc-item"><span class="cc-lbl">點擊</span><span class="cc-val">${fmtN(r.clk)}</span>${deltaHTML(r.clk, p.clk)}</div>
+        <div class="cc-item"><span class="cc-lbl">CPC</span><span class="cc-val">${fmtM(r.cpc)}</span>${deltaHTML(r.cpc, p.cpc)}</div>
+        <div class="cc-item"><span class="cc-lbl">加車</span><span class="cc-val">${fmtN(r.addCart)}</span>${deltaHTML(r.addCart, p.addCart)}</div>
+        <div class="cc-item"><span class="cc-lbl">購買</span><span class="cc-val">${fmtN(r.purchase)}</span>${deltaHTML(r.purchase, p.purchase)}</div>
+        <div class="cc-item"><span class="cc-lbl">CPA（購買）</span><span class="cc-val">${r.cpaPurchase?fmtM(r.cpaPurchase):'—'}</span>${deltaHTML(r.cpaPurchase, p.cpaPurchase)}</div>
+        <div class="cc-item"><span class="cc-lbl">營收</span><span class="cc-val">${fmtM(r.revenue)}</span>${deltaHTML(r.revenue, p.revenue)}</div>
+        <div class="cc-item"><span class="cc-lbl">ROAS</span><span class="cc-val ${rc(r.roas)}">${r.roas?r.roas.toFixed(2)+'x':'—'}</span>${deltaHTML(r.roas, p.roas)}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   el.innerHTML = `
-    <div class="camp-card-grid-wrap">${cardsHTML}</div>
+    <div class="camp-card-list-wrap">${cardsHTML}</div>
     <div class="table-card">
       <div class="table-header">
         <h3>📋 廣告活動明細</h3>
@@ -1070,6 +1129,289 @@ function renderGoogleKeyword(kwRows) {
         <div class="table-wrap" style="max-height:520px;overflow-y:auto">${gadsTable(kwRows, cols)}</div>
       </div>
     </div>`;
+}
+
+// ── 5 個服務分頁（維修/租賃/購買/親臨門市/互動）────────────────
+const SERVICE_CATEGORIES = [
+  { id:'repair',     label:'維修',     keyword:'維修',     meta:true,  google:true  },
+  { id:'rental',     label:'租賃',     keyword:'租賃',     meta:true,  google:true  },
+  { id:'purchase',   label:'購買',     keyword:'購買',     meta:true,  google:true  },
+  { id:'visit',      label:'親臨門市', keyword:'親臨門市', meta:false, google:true  },
+  { id:'engagement', label:'互動',     keyword:'互動',     meta:true,  google:false },
+];
+
+function fmtByCode(val, fmt) {
+  if (fmt === 'M') return fmtM(val);
+  if (fmt === 'P') return fmtP(val);
+  return fmtN(val);
+}
+
+function normMetaRows(rows) {
+  return rows.map(r => ({
+    date: r.date_start, name: r.campaign_name,
+    spend: r.spend||0, impressions: r.impressions||0, clicks: r.link_clicks||0,
+    add_to_cart: r.add_to_cart||0, purchase: r.purchase||0, engagement: r.engagement||0,
+  }));
+}
+function normGoogleServiceRows(rows) {
+  return rows.map(r => ({
+    date: r['日期'], name: r['廣告活動'], _account: r._account,
+    spend: parseFloat(r['花費(TWD)'])||0, impressions: parseInt(r['曝光'])||0, clicks: parseInt(r['點擊'])||0,
+    repair: parseFloat(r['立即報修'])||0,
+    rentAddCart: parseFloat(r['租-加入購物車'])||0,
+    completeConv: parseFloat(r['完成(購買/租賃)'])||0,
+    addCart: parseFloat(r['加入購物車'])||0,
+    visit: parseFloat(r['親臨門市'])||0,
+    nav: parseFloat(r['導航'])||0,
+  }));
+}
+
+function metricsMetaRepair(a) {
+  const spend=a.spend||0, imp=a.impressions||0, clk=a.clicks||0, purchase=a.purchase||0;
+  const ctr = imp>0 ? clk/imp*100 : 0;
+  const cplc = clk>0 ? spend/clk : 0;
+  const cvr = clk>0 ? purchase/clk*100 : 0;
+  const cpa = purchase>0 ? spend/purchase : 0;
+  return [
+    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
+    { label:'連結點擊', val:clk, fmt:'N' }, { label:'CTR', val:ctr, fmt:'P' },
+    { label:'CPLC', val:cplc, fmt:'M' }, { label:'轉換', val:purchase, fmt:'N' },
+    { label:'CVR填單率', val:cvr, fmt:'P' }, { label:'CPA', val:cpa, fmt:'M' },
+  ];
+}
+function metricsGoogleRepair(a) {
+  const spend=a.spend||0, imp=a.impressions||0, clk=a.clicks||0, repair=a.repair||0;
+  const ctr = imp>0 ? clk/imp*100 : 0;
+  const cpc = clk>0 ? spend/clk : 0;
+  const cvr = clk>0 ? repair/clk*100 : 0;
+  const cpa = repair>0 ? spend/repair : 0;
+  return [
+    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
+    { label:'點擊', val:clk, fmt:'N' }, { label:'CTR', val:ctr, fmt:'P' },
+    { label:'CPC', val:cpc, fmt:'M' }, { label:'轉換', val:repair, fmt:'N' },
+    { label:'CVR填單率', val:cvr, fmt:'P' }, { label:'CPA', val:cpa, fmt:'M' },
+  ];
+}
+function metricsMetaRental(a) {
+  const spend=a.spend||0, imp=a.impressions||0, clk=a.clicks||0, addCart=a.add_to_cart||0, purchase=a.purchase||0;
+  const ctr = imp>0 ? clk/imp*100 : 0;
+  const cplc = clk>0 ? spend/clk : 0;
+  const cvrAdd = clk>0 ? addCart/clk*100 : 0;
+  const cvrDone = addCart>0 ? purchase/addCart*100 : 0;
+  const cpa = purchase>0 ? spend/purchase : 0;
+  return [
+    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
+    { label:'連結點擊', val:clk, fmt:'N' }, { label:'CTR', val:ctr, fmt:'P' },
+    { label:'CPLC', val:cplc, fmt:'M' }, { label:'加車', val:addCart, fmt:'N' },
+    { label:'CVR加車', val:cvrAdd, fmt:'P' }, { label:'轉換', val:purchase, fmt:'N' },
+    { label:'CVR完成率', val:cvrDone, fmt:'P' }, { label:'CPA', val:cpa, fmt:'M' },
+  ];
+}
+function metricsMetaPurchase(a) {
+  const spend=a.spend||0, imp=a.impressions||0, clk=a.clicks||0, addCart=a.add_to_cart||0, purchase=a.purchase||0;
+  const ctr = imp>0 ? clk/imp*100 : 0;
+  const cplc = clk>0 ? spend/clk : 0;
+  const cvrAdd = clk>0 ? addCart/clk*100 : 0;
+  const cvrBuy = addCart>0 ? purchase/addCart*100 : 0;
+  const cpa = purchase>0 ? spend/purchase : 0;
+  return [
+    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
+    { label:'連結點擊', val:clk, fmt:'N' }, { label:'CTR', val:ctr, fmt:'P' },
+    { label:'CPLC', val:cplc, fmt:'M' }, { label:'加車', val:addCart, fmt:'N' },
+    { label:'CVR加車率', val:cvrAdd, fmt:'P' }, { label:'轉換', val:purchase, fmt:'N' },
+    { label:'CVR購買率', val:cvrBuy, fmt:'P' }, { label:'CPA', val:cpa, fmt:'M' },
+  ];
+}
+function metricsGoogleRental(a) {
+  const spend=a.spend||0, imp=a.impressions||0, clk=a.clicks||0, addCart=a.rentAddCart||0, conv=a.completeConv||0;
+  const ctr = imp>0 ? clk/imp*100 : 0;
+  const cpc = clk>0 ? spend/clk : 0;
+  const cvrDone = addCart>0 ? conv/addCart*100 : 0;
+  const cpa = conv>0 ? spend/conv : 0;
+  return [
+    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
+    { label:'點擊', val:clk, fmt:'N' }, { label:'CTR', val:ctr, fmt:'P' },
+    { label:'CPC', val:cpc, fmt:'M' }, { label:'加車', val:addCart, fmt:'N' },
+    { label:'轉換', val:conv, fmt:'N' }, { label:'CVR完成率', val:cvrDone, fmt:'P' },
+    { label:'CPA', val:cpa, fmt:'M' },
+  ];
+}
+function metricsGooglePurchase(a) {
+  const spend=a.spend||0, imp=a.impressions||0, clk=a.clicks||0, addCart=a.addCart||0, conv=a.completeConv||0;
+  const ctr = imp>0 ? clk/imp*100 : 0;
+  const cpc = clk>0 ? spend/clk : 0;
+  const cvrAdd = clk>0 ? addCart/clk*100 : 0;
+  const cvrBuy = addCart>0 ? conv/addCart*100 : 0;
+  const cpa = conv>0 ? spend/conv : 0;
+  return [
+    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
+    { label:'點擊', val:clk, fmt:'N' }, { label:'CTR', val:ctr, fmt:'P' },
+    { label:'CPC', val:cpc, fmt:'M' }, { label:'加車', val:addCart, fmt:'N' },
+    { label:'CVR加車率', val:cvrAdd, fmt:'P' }, { label:'轉換', val:conv, fmt:'N' },
+    { label:'CVR購買率', val:cvrBuy, fmt:'P' }, { label:'CPA', val:cpa, fmt:'M' },
+  ];
+}
+function metricsGoogleVisit(a) {
+  const spend=a.spend||0, imp=a.impressions||0, clk=a.clicks||0, visit=a.visit||0, nav=a.nav||0;
+  const ctr = imp>0 ? clk/imp*100 : 0;
+  const cpc = clk>0 ? spend/clk : 0;
+  const cvrVisit = clk>0 ? visit/clk*100 : 0;
+  const cvrNav = clk>0 ? nav/clk*100 : 0;
+  return [
+    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
+    { label:'點擊', val:clk, fmt:'N' }, { label:'CTR', val:ctr, fmt:'P' },
+    { label:'CPC', val:cpc, fmt:'M' }, { label:'親臨門市', val:visit, fmt:'N' },
+    { label:'CVR（親臨門市）', val:cvrVisit, fmt:'P' }, { label:'導航', val:nav, fmt:'N' },
+    { label:'CVR（導航）', val:cvrNav, fmt:'P' },
+  ];
+}
+function metricsMetaEngagement(a) {
+  const spend=a.spend||0, imp=a.impressions||0, engagement=a.engagement||0;
+  const rate = imp>0 ? engagement/imp*100 : 0;
+  const cpe = engagement>0 ? spend/engagement : 0;
+  return [
+    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
+    { label:'貼文互動', val:engagement, fmt:'N' }, { label:'互動率', val:rate, fmt:'P' },
+    { label:'CPC（互動）', val:cpe, fmt:'M' },
+  ];
+}
+
+const SERVICE_METRIC_FNS = {
+  repair:     { meta: metricsMetaRepair,     google: metricsGoogleRepair   },
+  rental:     { meta: metricsMetaRental,     google: metricsGoogleRental   },
+  purchase:   { meta: metricsMetaPurchase,   google: metricsGooglePurchase },
+  visit:      { meta: null,                  google: metricsGoogleVisit    },
+  engagement: { meta: metricsMetaEngagement, google: null                  },
+};
+
+let serviceGranularity = {};
+let serviceRawRows = {};
+let serviceMetricFn = {};
+
+function setServiceGranularity(idPrefix, g, btn) {
+  serviceGranularity[idPrefix] = g;
+  btn.parentElement.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderServiceTable(idPrefix);
+}
+
+function renderServiceTable(idPrefix) {
+  const rows = serviceRawRows[idPrefix] || [];
+  const metricFn = serviceMetricFn[idPrefix];
+  const g = serviceGranularity[idPrefix] || 'day';
+  const campFilter = document.getElementById(idPrefix + 'CampFilter')?.value || '';
+  const filtered = campFilter ? rows.filter(r => r.name === campFilter) : rows;
+
+  const map = {};
+  filtered.forEach(r => {
+    const period = periodKey(r.date, g);
+    const key = r.name + '||' + period;
+    if (!map[key]) map[key] = { name:r.name, period, __raw:{} };
+    const m = map[key].__raw;
+    Object.keys(r).forEach(k => {
+      if (k === 'date' || k === 'name') return;
+      m[k] = (m[k]||0) + (r[k]||0);
+    });
+  });
+  const rowsOut = Object.values(map).sort((a,b) => a.name===b.name ? a.period.localeCompare(b.period) : a.name.localeCompare(b.name));
+  const metricCols = rowsOut.length ? metricFn(rowsOut[0].__raw) : metricFn({});
+
+  document.getElementById(idPrefix + 'TableWrap').innerHTML = `
+    <table>
+      <thead><tr><th>廣告活動</th><th>期間</th>${metricCols.map(m=>`<th>${m.label}</th>`).join('')}</tr></thead>
+      <tbody>${rowsOut.map(r => {
+        const metrics = metricFn(r.__raw);
+        return `<tr>
+          <td><span class="cell-name" title="${r.name}">${r.name}</span></td>
+          <td>${periodLabel(r.period, g)}</td>
+          ${metrics.map(m => `<td>${fmtByCode(m.val, m.fmt)}</td>`).join('')}
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+}
+
+function renderServiceBlock(container, title, rows, metricFn, since, until, idPrefix) {
+  if (!rows.length) {
+    container.insertAdjacentHTML('beforeend', `<div class="table-card" style="margin-bottom:20px"><div class="table-header"><h3>${title}</h3></div><div class="placeholder">無資料</div></div>`);
+    return;
+  }
+  const prev = prevRange(since, until);
+  const curRows  = rows.filter(r => r.date >= since && r.date <= until);
+  const prevRows = rows.filter(r => r.date >= prev.since && r.date <= prev.until);
+
+  function aggByName(list) {
+    const map = {};
+    list.forEach(r => {
+      if (!map[r.name]) map[r.name] = {};
+      const m = map[r.name];
+      Object.keys(r).forEach(k => {
+        if (k === 'date' || k === 'name') return;
+        m[k] = (m[k]||0) + (r[k]||0);
+      });
+    });
+    return map;
+  }
+  const curMap = aggByName(curRows);
+  const prevMap = aggByName(prevRows);
+  const names = Object.keys(curMap).sort((a,b) => (curMap[b].spend||0) - (curMap[a].spend||0));
+
+  const cardsHTML = names.map(name => {
+    const cur = metricFn(curMap[name]);
+    const prv = metricFn(prevMap[name] || {});
+    return `<div class="camp-card">
+      <div class="camp-card-title" title="${name}">${name}</div>
+      <div class="camp-card-metrics">
+        ${cur.map((m,i) => `<div class="cc-item"><span class="cc-lbl">${m.label}</span><span class="cc-val">${fmtByCode(m.val,m.fmt)}</span>${deltaHTML(m.val, prv[i] ? prv[i].val : 0)}</div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  serviceRawRows[idPrefix] = curRows;
+  serviceMetricFn[idPrefix] = metricFn;
+  serviceGranularity[idPrefix] = 'day';
+
+  container.insertAdjacentHTML('beforeend', `
+    <div class="camp-card-list-wrap">${cardsHTML}</div>
+    <div class="table-card" style="margin-bottom:20px">
+      <div class="table-header">
+        <h3>📋 ${title}明細</h3>
+        <div class="table-header-right">
+          <div class="filter-row">
+            <select class="filter-select" id="${idPrefix}CampFilter" onchange="renderServiceTable('${idPrefix}')">
+              <option value="">所有廣告活動</option>
+              ${names.map(n => `<option value="${n}">${n}</option>`).join('')}
+            </select>
+            <div class="preset-btns">
+              <button class="preset-btn active" onclick="setServiceGranularity('${idPrefix}','day',this)">日</button>
+              <button class="preset-btn" onclick="setServiceGranularity('${idPrefix}','week',this)">週</button>
+              <button class="preset-btn" onclick="setServiceGranularity('${idPrefix}','month',this)">月</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="table-wrap" id="${idPrefix}TableWrap"></div>
+    </div>`);
+  renderServiceTable(idPrefix);
+}
+
+function renderServiceTabs(metaCampTrend, gServiceRaw, since, until) {
+  const metaRows = normMetaRows(metaCampTrend);
+  // 5 個服務分頁的 Google 資料只算聯瑩國際，Allez 是另一條產品線不算進來
+  const gRows = normGoogleServiceRows(gServiceRaw).filter(r => r._account === '聯瑩國際');
+
+  SERVICE_CATEGORIES.forEach(cat => {
+    const el = document.getElementById('tab-svc-' + cat.id);
+    el.innerHTML = '';
+    if (cat.meta) {
+      const rows = metaRows.filter(r => (r.name||'').includes(cat.keyword));
+      renderServiceBlock(el, `📘 Meta・${cat.label}`, rows, SERVICE_METRIC_FNS[cat.id].meta, since, until, 'svc' + cat.id + 'meta');
+    }
+    if (cat.google) {
+      const rows = gRows.filter(r => (r.name||'').includes(cat.keyword));
+      renderServiceBlock(el, `🔍 Google・${cat.label}`, rows, SERVICE_METRIC_FNS[cat.id].google, since, until, 'svc' + cat.id + 'google');
+    }
+    if (!el.innerHTML) el.innerHTML = '<div class="table-card"><div class="placeholder">尚無資料</div></div>';
+  });
 }
 
 fetchData();
