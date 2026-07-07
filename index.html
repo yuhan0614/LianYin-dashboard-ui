@@ -954,16 +954,22 @@ function renderAllez(allData, since, until) {
 
   const campTotals = aggCampaignTotals(rows).sort((a,b) => b.spend - a.spend);
   const demandgenAll = combineDemandgen(campTotals);
+  const DG_NAMES = ['Allez_Demandgen_流量', 'Allez_Demandgen_轉換'];
+  let orderedTotals = campTotals;
+  let subNames = [];
   if (demandgenAll) {
-    campTotals.unshift(demandgenAll);
+    const dgParts = DG_NAMES.map(n => campTotals.find(r => r.name === n)).filter(Boolean);
+    const rest = campTotals.filter(r => !DG_NAMES.includes(r.name));
+    orderedTotals = [demandgenAll, ...dgParts, ...rest];
+    subNames = DG_NAMES;
     const demandgenAllPrev = combineDemandgen(aggCampaignTotals(prevRows));
     if (demandgenAllPrev) prevMap[demandgenAll.name] = demandgenAllPrev;
   }
 
-  const cardsHTML = campTotals.map(r => {
+  const cardsHTML = orderedTotals.map(r => {
     const p = prevMap[r.name] || {};
     return `
-    <div class="camp-card">
+    <div class="camp-card${subNames.includes(r.name) ? ' camp-card-sub' : ''}">
       <div class="camp-card-title" title="${r.name}">${r.name}</div>
       <div class="camp-card-metrics">
         <div class="cc-item"><span class="cc-lbl">花費</span><span class="cc-val">${fmtM(r.spend)}</span>${deltaHTML(r.spend, p.spend)}</div>
