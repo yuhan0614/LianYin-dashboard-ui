@@ -1459,6 +1459,49 @@ function renderServiceBlock(container, title, rows, metricFn, since, until, idPr
   renderServiceTable(idPrefix);
 }
 
+function renderMetaCreativeTable(container, keyword, metricFn) {
+  const filtered = allAdData.filter(r => (r.campaign_name||'').includes(keyword));
+  if (!filtered.length) return;
+
+  const map = {};
+  filtered.forEach(r => {
+    const name = r.ad_name || '—';
+    if (!map[name]) map[name] = { spend:0, impressions:0, clicks:0, add_to_cart:0, purchase:0, purchase_value:0, engagement:0 };
+    const m = map[name];
+    m.spend         += r.spend||0;
+    m.impressions   += r.impressions||0;
+    m.clicks        += r.link_clicks||0;
+    m.add_to_cart   += r.add_to_cart||0;
+    m.purchase      += r.purchase||0;
+    m.purchase_value+= r.purchase_value||0;
+    m.engagement    += r.engagement||0;
+  });
+  const names = Object.keys(map).sort((a,b) => map[b].spend - map[a].spend);
+  const metricCols = metricFn({});
+
+  const rowsHTML = names.map(name => {
+    const metrics = metricFn(map[name]);
+    const info = adUrlMap[name] || {};
+    const thumbCell = info.thumb
+      ? `<img src="${info.thumb}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;display:block;border:1px solid #eee;" onerror="this.style.display='none'">`
+      : '<span class="na">—</span>';
+    return `<tr>
+      <td><span class="cell-name" title="${name}">${name}</span></td>
+      <td style="text-align:center">${thumbCell}</td>
+      ${metrics.map(m => `<td>${fmtByCode(m.val, m.fmt)}</td>`).join('')}
+    </tr>`;
+  }).join('');
+
+  container.insertAdjacentHTML('beforeend', `
+    <div class="table-card" style="margin-bottom:20px">
+      <div class="table-header"><h3>🎨 素材表現</h3><span style="font-size:12px;color:#aaa;">${names.length} 筆</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>素材名稱</th><th style="text-align:center">縮圖</th>${metricCols.map(m=>`<th>${m.label}</th>`).join('')}</tr></thead>
+        <tbody>${rowsHTML}</tbody>
+      </table></div>
+    </div>`);
+}
+
 function renderServiceTabs(metaCampTrend, gServiceRaw, since, until) {
   const metaRows = normMetaRows(metaCampTrend);
   // 5 個服務分頁的 Google 資料只算聯瑩國際，Allez 是另一條產品線不算進來
@@ -1471,6 +1514,7 @@ function renderServiceTabs(metaCampTrend, gServiceRaw, since, until) {
       const rows = metaRows.filter(r => (r.name||'').includes(cat.keyword));
       const showTotal = cat.id === 'repair' || cat.id === 'purchase';
       renderServiceBlock(el, `📘 Meta・${cat.label}`, rows, SERVICE_METRIC_FNS[cat.id].meta, since, until, 'svc' + cat.id + 'meta', showTotal);
+      renderMetaCreativeTable(el, cat.keyword, SERVICE_METRIC_FNS[cat.id].meta);
     }
     if (cat.google) {
       const rows = gRows.filter(r => (r.name||'').includes(cat.keyword));
