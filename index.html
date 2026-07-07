@@ -106,6 +106,11 @@
   .cc-delta { font-size:11px; font-weight:600; margin-top:1px; }
   .cc-delta-up { color:#52c41a; }
   .cc-delta-down { color:#f5222d; }
+  .camp-card-total { border:1.5px solid #52c41a; background:#f6ffed; }
+  .camp-card-total .camp-card-title { font-size:15px; }
+  .camp-card-sub { padding:10px 20px; margin-left:16px; }
+  .camp-card-sub .camp-card-title { font-size:12px; font-weight:600; color:#666; flex-basis:184px; }
+  .camp-card-sub .cc-val { font-size:13px; }
   .cc-val { font-size:14px; font-weight:700; }
 </style>
 </head>
@@ -1355,10 +1360,26 @@ function renderServiceBlock(container, title, rows, metricFn, since, until, idPr
   const prevMap = aggByName(prevRows);
   const names = Object.keys(curMap).sort((a,b) => (curMap[b].spend||0) - (curMap[a].spend||0));
 
+  function sumRaw(map) {
+    const total = {};
+    Object.keys(map).forEach(name => {
+      Object.keys(map[name]).forEach(k => { total[k] = (total[k]||0) + (map[name][k]||0); });
+    });
+    return total;
+  }
+  const totalCur = metricFn(sumRaw(curMap));
+  const totalPrev = metricFn(sumRaw(prevMap));
+  const totalCardHTML = `<div class="camp-card camp-card-total">
+    <div class="camp-card-title" title="加總">加總</div>
+    <div class="camp-card-metrics">
+      ${totalCur.map((m,i) => `<div class="cc-item"><span class="cc-lbl">${m.label}</span><span class="cc-val">${fmtByCode(m.val,m.fmt)}</span>${deltaHTML(m.val, totalPrev[i] ? totalPrev[i].val : 0)}</div>`).join('')}
+    </div>
+  </div>`;
+
   const cardsHTML = names.map(name => {
     const cur = metricFn(curMap[name]);
     const prv = metricFn(prevMap[name] || {});
-    return `<div class="camp-card">
+    return `<div class="camp-card camp-card-sub">
       <div class="camp-card-title" title="${name}">${name}</div>
       <div class="camp-card-metrics">
         ${cur.map((m,i) => `<div class="cc-item"><span class="cc-lbl">${m.label}</span><span class="cc-val">${fmtByCode(m.val,m.fmt)}</span>${deltaHTML(m.val, prv[i] ? prv[i].val : 0)}</div>`).join('')}
@@ -1371,7 +1392,7 @@ function renderServiceBlock(container, title, rows, metricFn, since, until, idPr
   serviceGranularity[idPrefix] = 'day';
 
   container.insertAdjacentHTML('beforeend', `
-    <div class="camp-card-list-wrap">${cardsHTML}</div>
+    <div class="camp-card-list-wrap">${totalCardHTML}${cardsHTML}</div>
     <div class="table-card" style="margin-bottom:20px">
       <div class="table-header">
         <h3>📋 ${title}明細</h3>
