@@ -142,9 +142,9 @@
     <button class="preset-btn" onclick="applyPresetMonth()">本月</button>
   </div>
   <div class="date-inputs">
-    <input type="date" id="dateFrom" onchange="clearPreset()">
+    <input type="date" id="dateFrom" min="2026-01-01" onchange="clearPreset()">
     <span style="color:#bbb">至</span>
-    <input type="date" id="dateTo" onchange="clearPreset()">
+    <input type="date" id="dateTo" min="2026-01-01" onchange="clearPreset()">
   </div>
   <button class="fetch-btn" id="fetchBtn" onclick="fetchData(true)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/></svg>
