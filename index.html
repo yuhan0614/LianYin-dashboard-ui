@@ -1335,7 +1335,7 @@ function renderServiceTable(idPrefix) {
     </table>`;
 }
 
-function renderServiceBlock(container, title, rows, metricFn, since, until, idPrefix) {
+function renderServiceBlock(container, title, rows, metricFn, since, until, idPrefix, showTotal) {
   if (!rows.length) {
     container.insertAdjacentHTML('beforeend', `<div class="table-card" style="margin-bottom:20px"><div class="table-header"><h3>${title}</h3></div><div class="placeholder">無資料</div></div>`);
     return;
@@ -1367,19 +1367,22 @@ function renderServiceBlock(container, title, rows, metricFn, since, until, idPr
     });
     return total;
   }
-  const totalCur = metricFn(sumRaw(curMap));
-  const totalPrev = metricFn(sumRaw(prevMap));
-  const totalCardHTML = `<div class="camp-card camp-card-total">
-    <div class="camp-card-title" title="加總">加總</div>
-    <div class="camp-card-metrics">
-      ${totalCur.map((m,i) => `<div class="cc-item"><span class="cc-lbl">${m.label}</span><span class="cc-val">${fmtByCode(m.val,m.fmt)}</span>${deltaHTML(m.val, totalPrev[i] ? totalPrev[i].val : 0)}</div>`).join('')}
-    </div>
-  </div>`;
+  let totalCardHTML = '';
+  if (showTotal) {
+    const totalCur = metricFn(sumRaw(curMap));
+    const totalPrev = metricFn(sumRaw(prevMap));
+    totalCardHTML = `<div class="camp-card camp-card-total">
+      <div class="camp-card-title" title="加總">加總</div>
+      <div class="camp-card-metrics">
+        ${totalCur.map((m,i) => `<div class="cc-item"><span class="cc-lbl">${m.label}</span><span class="cc-val">${fmtByCode(m.val,m.fmt)}</span>${deltaHTML(m.val, totalPrev[i] ? totalPrev[i].val : 0)}</div>`).join('')}
+      </div>
+    </div>`;
+  }
 
   const cardsHTML = names.map(name => {
     const cur = metricFn(curMap[name]);
     const prv = metricFn(prevMap[name] || {});
-    return `<div class="camp-card camp-card-sub">
+    return `<div class="camp-card${showTotal ? ' camp-card-sub' : ''}">
       <div class="camp-card-title" title="${name}">${name}</div>
       <div class="camp-card-metrics">
         ${cur.map((m,i) => `<div class="cc-item"><span class="cc-lbl">${m.label}</span><span class="cc-val">${fmtByCode(m.val,m.fmt)}</span>${deltaHTML(m.val, prv[i] ? prv[i].val : 0)}</div>`).join('')}
@@ -1425,11 +1428,12 @@ function renderServiceTabs(metaCampTrend, gServiceRaw, since, until) {
     el.innerHTML = '';
     if (cat.meta) {
       const rows = metaRows.filter(r => (r.name||'').includes(cat.keyword));
-      renderServiceBlock(el, `📘 Meta・${cat.label}`, rows, SERVICE_METRIC_FNS[cat.id].meta, since, until, 'svc' + cat.id + 'meta');
+      const showTotal = cat.id === 'repair' || cat.id === 'purchase';
+      renderServiceBlock(el, `📘 Meta・${cat.label}`, rows, SERVICE_METRIC_FNS[cat.id].meta, since, until, 'svc' + cat.id + 'meta', showTotal);
     }
     if (cat.google) {
       const rows = gRows.filter(r => (r.name||'').includes(cat.keyword));
-      renderServiceBlock(el, `🔍 Google・${cat.label}`, rows, SERVICE_METRIC_FNS[cat.id].google, since, until, 'svc' + cat.id + 'google');
+      renderServiceBlock(el, `🔍 Google・${cat.label}`, rows, SERVICE_METRIC_FNS[cat.id].google, since, until, 'svc' + cat.id + 'google', false);
     }
     if (!el.innerHTML) el.innerHTML = '<div class="table-card"><div class="placeholder">尚無資料</div></div>';
   });
