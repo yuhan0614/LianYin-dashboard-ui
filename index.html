@@ -955,7 +955,7 @@ function renderAllez(allData, since, until) {
   const campTotals = aggCampaignTotals(rows).sort((a,b) => b.spend - a.spend);
   const demandgenAll = combineDemandgen(campTotals);
   if (demandgenAll) {
-    campTotals.push(demandgenAll);
+    campTotals.unshift(demandgenAll);
     const demandgenAllPrev = combineDemandgen(aggCampaignTotals(prevRows));
     if (demandgenAllPrev) prevMap[demandgenAll.name] = demandgenAllPrev;
   }
