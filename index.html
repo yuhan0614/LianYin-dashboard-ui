@@ -934,7 +934,31 @@ function renderAllez(allData, since, until) {
   const prevMap = {};
   aggCampaignTotals(prevRows).forEach(r => { prevMap[r.name] = r; });
 
+  // Allez_Demandgen_流量 + Allez_Demandgen_轉換 都有的話，額外加一張合計卡放最下面
+  function combineDemandgen(totals) {
+    const DG_NAMES = ['Allez_Demandgen_流量', 'Allez_Demandgen_轉換'];
+    const parts = totals.filter(r => DG_NAMES.includes(r.name));
+    if (parts.length < 2) return null;
+    const m = { name: 'Allez_Demandgen All', spend:0, clk:0, addCart:0, purchase:0, revenue:0 };
+    parts.forEach(r => {
+      m.spend += r.spend; m.clk += r.clk; m.addCart += r.addCart; m.purchase += r.purchase; m.revenue += r.revenue;
+    });
+    return {
+      ...m,
+      cpc:         m.clk > 0 ? m.spend/m.clk : 0,
+      cpaAddCart:  m.addCart > 0 ? m.spend/m.addCart : 0,
+      cpaPurchase: m.purchase > 0 ? m.spend/m.purchase : 0,
+      roas:        m.spend > 0 ? m.revenue/m.spend : 0,
+    };
+  }
+
   const campTotals = aggCampaignTotals(rows).sort((a,b) => b.spend - a.spend);
+  const demandgenAll = combineDemandgen(campTotals);
+  if (demandgenAll) {
+    campTotals.push(demandgenAll);
+    const demandgenAllPrev = combineDemandgen(aggCampaignTotals(prevRows));
+    if (demandgenAllPrev) prevMap[demandgenAll.name] = demandgenAllPrev;
+  }
 
   const cardsHTML = campTotals.map(r => {
     const p = prevMap[r.name] || {};
