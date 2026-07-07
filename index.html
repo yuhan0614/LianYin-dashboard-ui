@@ -106,11 +106,17 @@
   .cc-delta { font-size:11px; font-weight:600; margin-top:1px; }
   .cc-delta-up { color:#52c41a; }
   .cc-delta-down { color:#f5222d; }
-  .camp-card-total { border:1.5px solid #52c41a; background:#f6ffed; }
-  .camp-card-total .camp-card-title { font-size:15px; }
-  .camp-card-sub { padding:10px 20px; margin-left:16px; }
-  .camp-card-sub .camp-card-title { font-size:12px; font-weight:600; color:#666; flex-basis:184px; }
-  .camp-card-sub .cc-val { font-size:13px; }
+  .camp-card-total { border:none; background:#52c41a; }
+  .camp-card-total .camp-card-title { font-size:15px; color:#fff; }
+  .camp-card-total .cc-lbl { color:rgba(255,255,255,0.8); }
+  .camp-card-total .cc-val { color:#fff; }
+  .camp-card-total .cc-delta-up { color:#d9f7be; }
+  .camp-card-total .cc-delta-down { color:#ffd8d4; }
+  .camp-card-sub { padding:8px 20px; margin-left:16px; }
+  .camp-card-sub .camp-card-title { font-size:11px; font-weight:600; color:#666; flex-basis:184px; }
+  .camp-card-sub .cc-val { font-size:12px; }
+  .camp-card-sub .cc-lbl { font-size:9px; }
+  .camp-card-sub .cc-delta { font-size:10px; }
   .cc-val { font-size:14px; font-weight:700; }
 </style>
 </head>
@@ -1372,7 +1378,7 @@ function renderServiceBlock(container, title, rows, metricFn, since, until, idPr
     const totalCur = metricFn(sumRaw(curMap));
     const totalPrev = metricFn(sumRaw(prevMap));
     totalCardHTML = `<div class="camp-card camp-card-total">
-      <div class="camp-card-title" title="加總">加總</div>
+      <div class="camp-card-title" title="Meta-All">Meta-All</div>
       <div class="camp-card-metrics">
         ${totalCur.map((m,i) => `<div class="cc-item"><span class="cc-lbl">${m.label}</span><span class="cc-val">${fmtByCode(m.val,m.fmt)}</span>${deltaHTML(m.val, totalPrev[i] ? totalPrev[i].val : 0)}</div>`).join('')}
       </div>
