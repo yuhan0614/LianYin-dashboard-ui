@@ -1180,6 +1180,7 @@ const SERVICE_CATEGORIES = [
 function fmtByCode(val, fmt) {
   if (fmt === 'M') return fmtM(val);
   if (fmt === 'P') return fmtP(val);
+  if (fmt === 'X') return val ? `<span class="${rc(val)}">${(+val).toFixed(2)}x</span>` : '<span class="na">—</span>';
   return fmtN(val);
 }
 
@@ -1188,6 +1189,7 @@ function normMetaRows(rows) {
     date: r.date_start, name: r.campaign_name,
     spend: r.spend||0, impressions: r.impressions||0, clicks: r.link_clicks||0,
     add_to_cart: r.add_to_cart||0, purchase: r.purchase||0, engagement: r.engagement||0,
+    purchase_value: r.purchase_value||0,
   }));
 }
 function normGoogleServiceRows(rows) {
@@ -1246,17 +1248,20 @@ function metricsMetaRental(a) {
 }
 function metricsMetaPurchase(a) {
   const spend=a.spend||0, imp=a.impressions||0, clk=a.clicks||0, addCart=a.add_to_cart||0, purchase=a.purchase||0;
+  const purchaseValue = a.purchase_value||0;
   const ctr = imp>0 ? clk/imp*100 : 0;
   const cplc = clk>0 ? spend/clk : 0;
   const cvrAdd = clk>0 ? addCart/clk*100 : 0;
   const cvrBuy = addCart>0 ? purchase/addCart*100 : 0;
   const cpa = purchase>0 ? spend/purchase : 0;
+  const roas = spend>0 ? purchaseValue/spend : 0;
   return [
     { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
     { label:'連結點擊', val:clk, fmt:'N' }, { label:'CTR', val:ctr, fmt:'P' },
     { label:'CPLC', val:cplc, fmt:'M' }, { label:'加車', val:addCart, fmt:'N' },
     { label:'CVR加車率', val:cvrAdd, fmt:'P' }, { label:'轉換', val:purchase, fmt:'N' },
     { label:'CVR購買率', val:cvrBuy, fmt:'P' }, { label:'CPA', val:cpa, fmt:'M' },
+    { label:'購買轉換值', val:purchaseValue, fmt:'M' }, { label:'ROAS', val:roas, fmt:'X' },
   ];
 }
 function metricsGoogleRental(a) {
