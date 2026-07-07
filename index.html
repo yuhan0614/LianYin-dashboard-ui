@@ -1207,12 +1207,13 @@ function normGoogleServiceRows(rows) {
 
 function metricsMetaRepair(a) {
   const spend=a.spend||0, imp=a.impressions||0, clk=a.clicks||0, purchase=a.purchase||0;
+  const cpm = imp>0 ? spend/imp*1000 : 0;
   const ctr = imp>0 ? clk/imp*100 : 0;
   const cplc = clk>0 ? spend/clk : 0;
   const cvr = clk>0 ? purchase/clk*100 : 0;
   const cpa = purchase>0 ? spend/purchase : 0;
   return [
-    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
+    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' }, { label:'CPM', val:cpm, fmt:'M' },
     { label:'連結點擊', val:clk, fmt:'N' }, { label:'CTR', val:ctr, fmt:'P' },
     { label:'CPLC', val:cplc, fmt:'M' }, { label:'轉換', val:purchase, fmt:'N' },
     { label:'CVR填單率', val:cvr, fmt:'P' }, { label:'CPA', val:cpa, fmt:'M' },
@@ -1233,13 +1234,14 @@ function metricsGoogleRepair(a) {
 }
 function metricsMetaRental(a) {
   const spend=a.spend||0, imp=a.impressions||0, clk=a.clicks||0, addCart=a.add_to_cart||0, purchase=a.purchase||0;
+  const cpm = imp>0 ? spend/imp*1000 : 0;
   const ctr = imp>0 ? clk/imp*100 : 0;
   const cplc = clk>0 ? spend/clk : 0;
   const cvrAdd = clk>0 ? addCart/clk*100 : 0;
   const cvrDone = addCart>0 ? purchase/addCart*100 : 0;
   const cpa = purchase>0 ? spend/purchase : 0;
   return [
-    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
+    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' }, { label:'CPM', val:cpm, fmt:'M' },
     { label:'連結點擊', val:clk, fmt:'N' }, { label:'CTR', val:ctr, fmt:'P' },
     { label:'CPLC', val:cplc, fmt:'M' }, { label:'加車', val:addCart, fmt:'N' },
     { label:'CVR加車', val:cvrAdd, fmt:'P' }, { label:'轉換', val:purchase, fmt:'N' },
@@ -1249,6 +1251,7 @@ function metricsMetaRental(a) {
 function metricsMetaPurchase(a) {
   const spend=a.spend||0, imp=a.impressions||0, clk=a.clicks||0, addCart=a.add_to_cart||0, purchase=a.purchase||0;
   const purchaseValue = a.purchase_value||0;
+  const cpm = imp>0 ? spend/imp*1000 : 0;
   const ctr = imp>0 ? clk/imp*100 : 0;
   const cplc = clk>0 ? spend/clk : 0;
   const cvrAdd = clk>0 ? addCart/clk*100 : 0;
@@ -1256,7 +1259,7 @@ function metricsMetaPurchase(a) {
   const cpa = purchase>0 ? spend/purchase : 0;
   const roas = spend>0 ? purchaseValue/spend : 0;
   return [
-    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
+    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' }, { label:'CPM', val:cpm, fmt:'M' },
     { label:'連結點擊', val:clk, fmt:'N' }, { label:'CTR', val:ctr, fmt:'P' },
     { label:'CPLC', val:cplc, fmt:'M' }, { label:'加車', val:addCart, fmt:'N' },
     { label:'CVR加車率', val:cvrAdd, fmt:'P' }, { label:'轉換', val:purchase, fmt:'N' },
@@ -1309,10 +1312,11 @@ function metricsGoogleVisit(a) {
 }
 function metricsMetaEngagement(a) {
   const spend=a.spend||0, imp=a.impressions||0, engagement=a.engagement||0;
+  const cpm = imp>0 ? spend/imp*1000 : 0;
   const rate = imp>0 ? engagement/imp*100 : 0;
   const cpe = engagement>0 ? spend/engagement : 0;
   return [
-    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' },
+    { label:'花費', val:spend, fmt:'M' }, { label:'曝光', val:imp, fmt:'N' }, { label:'CPM', val:cpm, fmt:'M' },
     { label:'貼文互動', val:engagement, fmt:'N' }, { label:'互動率', val:rate, fmt:'P' },
     { label:'CPC（互動）', val:cpe, fmt:'M' },
   ];
