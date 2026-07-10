@@ -317,11 +317,10 @@ async function fetchData(forceRefresh = false) {
   const svcPrev = prevRange(since, until);
 
   try {
-    const [campRes, trendRes, adRes, urlRes, ageRes, genderRes, campTrendRes] = await Promise.all([
+    const [campRes, trendRes, adRes, ageRes, genderRes, campTrendRes] = await Promise.all([
       fetch(`${API_BASE}/api/insights?accounts=${META_ACCOUNT_ID}&since=${since}&until=${until}&level=campaign${force?'&force=true':''}`),
       fetch(`${API_BASE}/api/insights?accounts=${META_ACCOUNT_ID}&since=${since}&until=${until}&level=account&time_increment=1${force?'&force=true':''}`),
       fetch(`${API_BASE}/api/insights?accounts=${META_ACCOUNT_ID}&since=${since}&until=${until}&level=ad${force?'&force=true':''}`),
-      fetch(`${API_BASE}/api/ad_urls?account=${META_ACCOUNT_ID}`),
       fetch(`${API_BASE}/api/insights?accounts=${META_ACCOUNT_ID}&since=${since}&until=${until}&level=account&breakdowns=age`),
       fetch(`${API_BASE}/api/insights?accounts=${META_ACCOUNT_ID}&since=${since}&until=${until}&level=account&breakdowns=gender`),
       fetch(`${API_BASE}/api/insights?accounts=${META_ACCOUNT_ID}&since=${svcPrev.since}&until=${until}&level=campaign&time_increment=1`),
@@ -335,8 +334,15 @@ async function fetchData(forceRefresh = false) {
     const campData  = campJson.data || [];
     const trendData = trendJson.data || [];
     allAdData       = adJson.data || [];
-    adUrlMap        = (await urlRes.json()).data || {};
     const metaCampTrend = campTrendJson.data || [];
+
+    // 素材縮圖 API 比較容易逾時，單獨處理、失敗也不擋其他資料渲染
+    try {
+      const urlRes = await fetch(`${API_BASE}/api/ad_urls?account=${META_ACCOUNT_ID}`);
+      adUrlMap = (await urlRes.json()).data || {};
+    } catch (e) {
+      adUrlMap = {};
+    }
 
     const [gDailyRaw, gCamp, gAge, gGender, gAg, gKw, gService] = await Promise.all([
       fetchGadsSheet('daily'), fetchGadsSheet('campaign'), fetchGadsSheet('age'),
