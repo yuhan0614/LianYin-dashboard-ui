@@ -866,13 +866,22 @@ function setAllezGranularity(g, btn) {
   renderAllezTable();
 }
 
+// 沒選特定廣告活動時，明細表預設只顯示這兩組（Demandgen 流量+轉換合併）
+const ALLEZ_TABLE_DEFAULT_GROUPS = {
+  'Allez_Demandgen_流量': 'Allez_Demandgen All',
+  'Allez_Demandgen_轉換': 'Allez_Demandgen All',
+  'Allez_Pmax_購買':      'Allez_Pmax_購買',
+};
+
 function renderAllezTable() {
   const campFilter = document.getElementById('allezCampFilter')?.value || '';
-  const filtered = campFilter ? allezCampRaw.filter(r => r['廣告活動'] === campFilter) : allezCampRaw;
+  const filtered = campFilter
+    ? allezCampRaw.filter(r => r['廣告活動'] === campFilter)
+    : allezCampRaw.filter(r => ALLEZ_TABLE_DEFAULT_GROUPS[r['廣告活動']]);
   const map = {};
   filtered.forEach(r => {
     const period = periodKey(r['日期'], allezGranularity);
-    const camp = r['廣告活動'] || '—';
+    const camp = campFilter ? (r['廣告活動'] || '—') : ALLEZ_TABLE_DEFAULT_GROUPS[r['廣告活動']];
     const key = camp + '||' + period;
     if (!map[key]) map[key] = { camp, period, spend:0, clk:0, addCart:0, purchase:0, revenue:0 };
     const m = map[key];
