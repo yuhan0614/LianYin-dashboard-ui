@@ -1523,7 +1523,7 @@ function renderServiceTabs(metaCampTrend, gServiceRaw, since, until) {
     el.innerHTML = '';
     if (cat.meta) {
       const rows = metaRows.filter(r => (r.name||'').includes(cat.keyword));
-      const showTotal = cat.id === 'repair' || cat.id === 'purchase';
+      const showTotal = cat.id === 'repair' || cat.id === 'purchase' || cat.id === 'rental';
       renderServiceBlock(el, `📘 Meta・${cat.label}`, rows, SERVICE_METRIC_FNS[cat.id].meta, since, until, 'svc' + cat.id + 'meta', showTotal);
       renderMetaCreativeTable(el, cat.keyword, SERVICE_METRIC_FNS[cat.id].meta);
     }
