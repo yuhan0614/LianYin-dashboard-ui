@@ -1355,12 +1355,15 @@ function renderServiceTable(idPrefix) {
   const g = serviceGranularity[idPrefix] || 'day';
   const campFilter = document.getElementById(idPrefix + 'CampFilter')?.value || '';
   const filtered = campFilter ? rows.filter(r => r.name === campFilter) : rows;
+  // 沒選特定廣告活動時，預設顯示總體（全部活動合計），不拆分
+  const rowName = r => campFilter ? r.name : '總體';
 
   const map = {};
   filtered.forEach(r => {
     const period = periodKey(r.date, g);
-    const key = r.name + '||' + period;
-    if (!map[key]) map[key] = { name:r.name, period, __raw:{} };
+    const name = rowName(r);
+    const key = name + '||' + period;
+    if (!map[key]) map[key] = { name, period, __raw:{} };
     const m = map[key].__raw;
     Object.keys(r).forEach(k => {
       if (k === 'date' || k === 'name') return;
