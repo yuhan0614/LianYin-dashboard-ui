@@ -126,6 +126,20 @@
     th:first-child, td:first-child { position:static !important; }
     .camp-card, .table-card { break-inside:avoid; box-shadow:none; border:1px solid #eee; }
     .print-only { display:block; padding:10px 24px; font-size:13px; color:#555; border-bottom:1px solid #e4e6ea; }
+
+    body.print-all .tab-panel[data-print-label] { display:block !important; }
+    body.print-all .tab-panel[data-print-label]::before {
+      content: attr(data-print-label);
+      display:block; font-size:18px; font-weight:700; color:#1a1a2e;
+      padding:16px 0 10px; margin-bottom:14px; border-bottom:2px solid #52c41a;
+    }
+    body.print-all #tab-svc-repair,
+    body.print-all #tab-svc-rental,
+    body.print-all #tab-svc-purchase,
+    body.print-all #tab-svc-visit,
+    body.print-all #tab-svc-engagement {
+      page-break-before: always;
+    }
   }
 </style>
 </head>
@@ -197,13 +211,13 @@
   <div class="tab-panel" id="tab-perf"><div class="placeholder">點擊「更新資料」開始載入</div></div>
   <div class="tab-panel" id="tab-creative"><div class="placeholder">點擊「更新資料」開始載入</div></div>
   <div class="tab-panel" id="tab-gads"><div class="placeholder">點擊「更新資料」開始載入</div></div>
-  <div class="tab-panel active" id="tab-allez"><div class="placeholder">點擊「更新資料」開始載入</div></div>
+  <div class="tab-panel active" id="tab-allez" data-print-label="Allez"><div class="placeholder">點擊「更新資料」開始載入</div></div>
   <div class="tab-panel" id="tab-gkw"><div class="placeholder">點擊「更新資料」開始載入</div></div>
-  <div class="tab-panel" id="tab-svc-repair"><div class="placeholder">點擊「更新資料」開始載入</div></div>
-  <div class="tab-panel" id="tab-svc-rental"><div class="placeholder">點擊「更新資料」開始載入</div></div>
-  <div class="tab-panel" id="tab-svc-purchase"><div class="placeholder">點擊「更新資料」開始載入</div></div>
-  <div class="tab-panel" id="tab-svc-visit"><div class="placeholder">點擊「更新資料」開始載入</div></div>
-  <div class="tab-panel" id="tab-svc-engagement"><div class="placeholder">點擊「更新資料」開始載入</div></div>
+  <div class="tab-panel" id="tab-svc-repair" data-print-label="Oroobo-維修"><div class="placeholder">點擊「更新資料」開始載入</div></div>
+  <div class="tab-panel" id="tab-svc-rental" data-print-label="Oroobo-租賃"><div class="placeholder">點擊「更新資料」開始載入</div></div>
+  <div class="tab-panel" id="tab-svc-purchase" data-print-label="Oroobo-購買"><div class="placeholder">點擊「更新資料」開始載入</div></div>
+  <div class="tab-panel" id="tab-svc-visit" data-print-label="Oroobo-親臨門市"><div class="placeholder">點擊「更新資料」開始載入</div></div>
+  <div class="tab-panel" id="tab-svc-engagement" data-print-label="Oroobo-互動"><div class="placeholder">點擊「更新資料」開始載入</div></div>
 </div>
 
 <script>
@@ -282,11 +296,11 @@ function switchTab(name) {
 function exportPDF() {
   const since = document.getElementById('dateFrom').value;
   const until = document.getElementById('dateTo').value;
-  const activeTabBtn = document.querySelector('.tab-btn.active');
-  const tabName = activeTabBtn ? activeTabBtn.textContent.trim() : '';
-  document.getElementById('printHeader').textContent = `聯瑩國際 成效儀表板・${tabName}・${since} ～ ${until}`;
+  document.getElementById('printHeader').textContent = `聯瑩國際 成效儀表板・${since} ～ ${until}`;
+  document.body.classList.add('print-all');
   window.print();
 }
+window.addEventListener('afterprint', () => document.body.classList.remove('print-all'));
 
 // ── CSV parser ────────────────────────────────────────────
 function parseCSV(text) {
