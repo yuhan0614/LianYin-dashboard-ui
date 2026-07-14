@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LianYin 成效儀表板</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; font-size: 14px; }
@@ -115,8 +117,8 @@
   .camp-card-sub .cc-delta { font-size:10px; }
   .cc-val { font-size:14px; font-weight:700; }
 
-  .print-only { display:none; }
   @media print {
+    @page { size: A4 landscape; margin: 12mm; }
     .controls, .tabs, .loading-overlay { display:none !important; }
     body { background:white; }
     .header { position:static; box-shadow:none; }
@@ -125,21 +127,6 @@
     .table-wrap { overflow:visible !important; }
     th:first-child, td:first-child { position:static !important; }
     .camp-card, .table-card { break-inside:avoid; box-shadow:none; border:1px solid #eee; }
-    .print-only { display:block; padding:10px 24px; font-size:13px; color:#555; border-bottom:1px solid #e4e6ea; }
-
-    body.print-all .tab-panel[data-print-label] { display:block !important; }
-    body.print-all .tab-panel[data-print-label]::before {
-      content: attr(data-print-label);
-      display:block; font-size:18px; font-weight:700; color:#1a1a2e;
-      padding:16px 0 10px; margin-bottom:14px; border-bottom:2px solid #52c41a;
-    }
-    body.print-all #tab-svc-repair,
-    body.print-all #tab-svc-rental,
-    body.print-all #tab-svc-purchase,
-    body.print-all #tab-svc-visit,
-    body.print-all #tab-svc-engagement {
-      page-break-before: always;
-    }
   }
 </style>
 </head>
@@ -177,13 +164,12 @@
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/></svg>
     更新資料
   </button>
-  <button class="fetch-btn" style="background:#555" onclick="exportPDF()">
+  <button class="fetch-btn" style="background:#555" id="exportPdfBtn" onclick="exportPDF()">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><polyline points="15 2 15 7 20 7"/></svg>
-    匯出 PDF
+    <span id="exportPdfBtnLabel">匯出 PDF</span>
   </button>
   <span class="status-text" id="statusText"></span>
 </div>
-<div id="printHeader" class="print-only"></div>
 
 </div>
 <div class="tabs">
@@ -293,14 +279,82 @@ function switchTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
 }
 
-function exportPDF() {
+async function exportPDF() {
+  // Chrome 的「列印成 PDF」在大型多頁中文文件裡,字型子集化偶爾會漏字（瀏覽器本身的 bug）,
+  // 改用 html2canvas 把畫面截圖後用 jsPDF 組頁,確保畫面看到什麼、PDF 就有什麼。
+  const btn = document.getElementById('exportPdfBtn');
+  const label = document.getElementById('exportPdfBtnLabel');
+  btn.disabled = true;
+
   const since = document.getElementById('dateFrom').value;
   const until = document.getElementById('dateTo').value;
-  document.getElementById('printHeader').textContent = `聯瑩國際 成效儀表板・${since} ～ ${until}`;
-  document.body.classList.add('print-all');
-  window.print();
+  const panels = Array.from(document.querySelectorAll('.tab-panel[data-print-label]'));
+
+  const prevActiveBtn = document.querySelector('.tab-btn.active');
+  const prevActivePanel = document.querySelector('.tab-panel.active');
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const margin = 24;
+  const contentW = pageW - margin * 2;
+
+  // jsPDF 內建字型沒有中文字，改用截圖的方式產生標題文字，避免用 pdf.text() 印出亂碼
+  async function captureTextImage(text) {
+    const div = document.createElement('div');
+    div.style.cssText = "position:fixed; left:-9999px; top:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:20px; color:#555; white-space:nowrap; background:#fff;";
+    div.textContent = text;
+    document.body.appendChild(div);
+    const canvas = await html2canvas(div, { scale: 2, backgroundColor: '#ffffff' });
+    document.body.removeChild(div);
+    return canvas;
+  }
+
+  try {
+    for (let i = 0; i < panels.length; i++) {
+      const panel = panels[i];
+      const name = panel.getAttribute('data-print-label');
+      label.textContent = `匯出中 (${i + 1}/${panels.length})...`;
+
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      panel.classList.add('active');
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      const headerCanvas = await captureTextImage(`聯瑩國際 成效儀表板・${name}・${since} ～ ${until}`);
+      const headerH = 14;
+      const headerW = headerCanvas.width * headerH / headerCanvas.height;
+
+      const canvas = await html2canvas(panel, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const imgH = canvas.height * contentW / canvas.width;
+
+      if (i > 0) pdf.addPage();
+      pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin - headerH - 2, headerW, headerH);
+
+      const usableH = pageH - margin * 2 - 14;
+      let remaining = imgH;
+      let offset = 0;
+      let first = true;
+      while (remaining > 0) {
+        if (!first) pdf.addPage();
+        const y = margin + 14 - offset;
+        pdf.addImage(imgData, 'JPEG', margin, y, contentW, imgH);
+        remaining -= usableH;
+        offset += usableH;
+        first = false;
+      }
+    }
+
+    pdf.save(`聯瑩國際_成效報表_${since}_${until}.pdf`);
+  } finally {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    if (prevActivePanel) prevActivePanel.classList.add('active');
+    else if (panels[0]) panels[0].classList.add('active');
+    btn.disabled = false;
+    label.textContent = '匯出 PDF';
+  }
 }
-window.addEventListener('afterprint', () => document.body.classList.remove('print-all'));
 
 // ── CSV parser ────────────────────────────────────────────
 function parseCSV(text) {
